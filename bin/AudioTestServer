@@ -87,8 +87,8 @@ my $JABusServer = Arctica::Core::JABus::Socket->new($ACO,{
 my $PA2GST = Arctica::Services::Audio::PulseAudio::PulseAudio2GST->new($ACO,$JABusServer);
 
 my $PA_VDev = Arctica::Services::Audio::PulseAudio::PAVirtualDevices->new($ACO,{
-#		hook_device_state => \&handle_PA_device_events,
-		hook_device_state =>  sub {$PA2GST->handle_PA_device_events(@_)},
+		hook_device_state => \&handle_PA_device_events,
+#		hook_device_state =>  sub {$PA2GST->handle_PA_device_events(@_)},
 	});
 
 
@@ -99,32 +99,55 @@ my $PA_VDev = Arctica::Services::Audio::PulseAudio::PAVirtualDevices->new($ACO,{
 
 $ACO->{'Glib'}{'MainLoop'}->run;
 
-#sub handle_PA_device_events {# FIXME this has moved into PulseAudio2GST...: Clean up on line 99!
-#	print "-------------------------------\n";
-#	print Dumper(@_),"\n";
-#	my $type = $_[0];
-#	my $idnum = $_[1];
-#	my $name = $_[2];
-#	my $new_state = $_[3];
-#	my $clientID = $PA2GST->get_active_client_id();
-#	print "CID#\t$clientID\n";
-#	if ($clientID) {
-#		$JABusServer->server_send($clientID,"gstctl","$type:$idnum:$new_state");
-#		if ($type eq "input") {
-#			if ($new_state eq "R") {
-#				# START LOCAL THEN CLIENTSIDE
-#			} elsif($new_state eq "S") {
-#				# SUSPEND CLIENTSIDE THEN LOCAL
-#			}
-#		} elsif ($type eq "output") {
-#			if ($new_state eq "R") {
-#				# START CLIENT SIDE THEN LOCAL 
-#			} elsif ($new_state eq "S") {
-#				# SUSPEND CLIENTSIDE THEN LOCAL
-#			}
-#		} 
-#	}
-#}
+sub handle_PA_device_events {# FIXME this has moved into PulseAudio2GST...: But then it came back out here...
+	print "-------------------------------\n";
+	print Dumper(@_),"\n";
+	my $type = $_[0];
+	my $idnum = $_[1];
+	my $name = $_[2];
+	my $new_state = $_[3];
+	my $clientID = $PA2GST->get_active_client_id();
+	print "CID#\t$clientID\n";
+	if ($clientID) {
+		
+		if ($type eq "input") {
+			if ($new_state eq "R") {
+				# START LOCAL THEN CLIENTSIDE
+				$PA2GST->start_input($idnum,$PA_VDev->{'pa_vdev'}{'input'}{0}{'pa_sink_name'});
+				$JABusServer->server_send($clientID,"gstctl",{
+										action => "start",
+										type   => $type,
+										idnum  => $idnum,
+										rate  => $PA2GST->get_input_bitrate($idnum),
+										});
+			} elsif($new_state eq "S") {
+				$JABusServer->server_send($clientID,"gstctl",{
+										action => "stop",
+										type   => $type,
+										idnum  => $idnum,
+										});
+				$PA2GST->stop_input($idnum);
+			}
+		} elsif ($type eq "output") {
+			if ($new_state eq "R") {
+				# START CLIENT SIDE THEN LOCAL 
+				$PA2GST->start_output($idnum,$PA_VDev->{'pa_vdev'}{'input'}{0}{'pa_sink_name'});
+				$JABusServer->server_send($clientID,"gstctl",{
+										action => "start",
+										type   => $type,
+										idnum  => $idnum,
+										});
+			} elsif ($new_state eq "S") {
+				$JABusServer->server_send($clientID,"gstctl",{
+										action => "stop",
+										type   => $type,
+										idnum  => $idnum,
+										});
+				$PA2GST->stop_output($idnum);
+			}
+		} 
+	}
+}
 
 
 
