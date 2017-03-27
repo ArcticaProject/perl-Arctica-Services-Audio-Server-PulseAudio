@@ -1,0 +1,153 @@
+#!/usr/bin/perl  -T -I /home/testx/arctica/HACK/convergence/perl/modules
+################################################################################
+#          _____ _
+#         |_   _| |_  ___
+#           | | | ' \/ -_)
+#           |_| |_||_\___|
+#                   _   _             ____            _           _
+#    / \   _ __ ___| |_(_) ___ __ _  |  _ \ _ __ ___ (_) ___  ___| |_
+#   / _ \ | '__/ __| __| |/ __/ _` | | |_) | '__/ _ \| |/ _ \/ __| __|
+#  / ___ \| | | (__| |_| | (_| (_| | |  __/| | | (_) | |  __/ (__| |_
+# /_/   \_\_|  \___|\__|_|\___\__,_| |_|   |_|  \___// |\___|\___|\__|
+#                                                  |__/
+#          The Arctica Modular Remote Computing Framework
+#
+################################################################################
+#
+# Copyright (C) 2015-2016 The Arctica Project
+# http://arctica-project.org/
+#
+# This code is dual licensed: strictly GPL-2 or AGPL-3+
+#
+# GPL-2
+# -----
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the
+# Free Software Foundation, Inc.,
+#
+# 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# AGPL-3+
+# -------
+# This programm is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This programm is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program; if not, write to the
+# Free Software Foundation, Inc.,
+# 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# Copyright (C) 2015-2017 Guangzhou Nianguan Electronics Technology Co.Ltd.
+#                         <opensource@gznianguan.com>
+# Copyright (C) 2015-2017 Mike Gabriel <mike.gabriel@das-netzwerkteam.de>
+#
+################################################################################
+use strict;
+use Data::Dumper;
+use Arctica::Core::eventInit qw(genARandom BugOUT);
+use Arctica::Core::JABus::Socket;
+use Arctica::Services::Audio::PulseAudio::PAVirtualDevices;
+use Arctica::Services::Audio::PulseAudio::PulseAudio2GST;
+#FIXME ADD  something that checks for active PulseAudio before we start doing our stuff....
+
+my $ACO = Arctica::Core::eventInit->new({
+	app_name=>'audio-server-test',
+	app_class =>'amoduletester',
+	app_version=>'0.0.1.1'});
+
+my $JABusServer = Arctica::Core::JABus::Socket->new($ACO,{
+	type	=>	"unix",
+	destination =>	"local",
+	is_server => 1,
+	handle_in_dispatch => {
+#			heartbeat => \&heartbeat, #FIXME heartbeat will be intergrated in RTT and persistency code in JABus...
+			gstctl => \&pa2gst_ctl,# Client facing stuff must be NON pulse centric 
+			init => \&client_init,
+#			cmd => \&client_init,# JABus runtime control 
+#			sub => \&subsrvc,# JABus runtime notifications service
+	},
+});
+
+my $PA2GST = Arctica::Services::Audio::PulseAudio::PulseAudio2GST->new($ACO,$JABusServer);
+
+my $PA_VDev = Arctica::Services::Audio::PulseAudio::PAVirtualDevices->new($ACO,{
+#		hook_device_state => \&handle_PA_device_events,
+		hook_device_state =>  sub {$PA2GST->handle_PA_device_events(@_)},
+	});
+
+
+
+
+
+#print Dumper($PA_VDev);
+
+$ACO->{'Glib'}{'MainLoop'}->run;
+
+#sub handle_PA_device_events {# FIXME this has moved into PulseAudio2GST...: Clean up on line 99!
+#	print "-------------------------------\n";
+#	print Dumper(@_),"\n";
+#	my $type = $_[0];
+#	my $idnum = $_[1];
+#	my $name = $_[2];
+#	my $new_state = $_[3];
+#	my $clientID = $PA2GST->get_active_client_id();
+#	print "CID#\t$clientID\n";
+#	if ($clientID) {
+#		$JABusServer->server_send($clientID,"gstctl","$type:$idnum:$new_state");
+#		if ($type eq "input") {
+#			if ($new_state eq "R") {
+#				# START LOCAL THEN CLIENTSIDE
+#			} elsif($new_state eq "S") {
+#				# SUSPEND CLIENTSIDE THEN LOCAL
+#			}
+#		} elsif ($type eq "output") {
+#			if ($new_state eq "R") {
+#				# START CLIENT SIDE THEN LOCAL 
+#			} elsif ($new_state eq "S") {
+#				# SUSPEND CLIENTSIDE THEN LOCAL
+#			}
+#		} 
+#	}
+#}
+
+
+
+sub client_init {
+	my $JSONDATA = $_[0];
+	my $client_ID = $_[1];
+	my $TheJBUS = $_[2];
+	BugOUT(8,"NEW CLIENT! ( $client_ID )");
+	if ($ACO->{'aobj'}{'AudioServer'}{'client_ID'}) {
+		client_cleanup($ACO->{'aobj'}{'AudioServer'}{'client_ID'});
+	}	
+	
+	$ACO->{'aobj'}{'AudioServer'}{'client_ID'} = $client_ID;
+	$PA2GST->set_jbus_client_id($client_ID);
+# FIXME Add something to force check of pulse vdev status at this point....
+
+#	$TheJBUS->server_send($client_ID,'init','GOOD TO GO!');
+
+}
+
+sub client_cleanup {
+#FIXME Reset everything to a clean state when new client connection is initiated!
+# ( Cause you'r mom ain't no perl sub!  )
+}
+
+
