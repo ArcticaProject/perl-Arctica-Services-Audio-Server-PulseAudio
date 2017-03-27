@@ -1,0 +1,59 @@
+#!/usr/bin/pulseaudio -nF
+.fail
+load-module module-stream-restore
+### Automatically augment property information from .desktop files
+### stored in /usr/share/application
+load-module module-augment-properties
+
+### Load several protocols
+.ifexists module-esound-protocol-unix.so
+load-module module-esound-protocol-unix
+.endif
+load-module module-native-protocol-unix
+
+load-module module-null-sink sink_name=arctica.output0 channels=2 sink_properties=device.description="VirtualOutput"
+load-module module-null-sink sink_name=arctica.input0 channels=1 sink_properties=device.description=".VirtualInputSink"
+load-module module-remap-source master=arctica.input0.monitor source_name=arctica.mic0 source_properties=device.description="VirtualMicrophone"
+
+
+### Honour intended role device property
+load-module module-intended-roles
+
+### Automatically suspend sinks/sources that become idle for too long
+load-module module-suspend-on-idle timeout=10
+
+### If autoexit on idle is enabled we want to make sure we only quit
+### when no local session needs us anymore.
+.ifexists module-console-kit.so
+load-module module-console-kit
+.endif
+#.ifexists module-systemd-login.so
+#load-module module-systemd-login
+#.endif
+
+### Enable positioned event sounds
+#load-module module-position-event-sounds
+
+### Modules to allow autoloading of filters (such as echo cancellation)
+### on demand. module-filter-heuristics tries to determine what filters
+### make sense, and module-filter-apply does the heavy-lifting of
+### loading modules and rerouting streams.
+load-module module-filter-heuristics
+load-module module-filter-apply
+
+### Load X11 bell module
+#load-module module-x11-bell sample=x11-bell
+
+### Register ourselves in the X11 session manager
+load-module module-x11-xsmp
+
+### Publish connection data in the X11 root window
+.ifexists module-x11-publish.so
+.nofail
+load-module module-x11-publish
+.fail
+.endif
+
+### Make some devices default
+set-default-sink arctica.output0
+set-default-source arctica.mic0
