@@ -57,7 +57,7 @@
 # Copyright (C) 2015-2017 Mike Gabriel <mike.gabriel@das-netzwerkteam.de>
 #
 ################################################################################
-package Arctica::Services::Audio::PulseAudio::PAVirtualDevices;
+package Arctica::Services::Audio::Server::PulseAudio::PAVirtualDevices;
 use strict;
 use Exporter qw(import);
 use Arctica::Core::BugOUT::Basics qw( BugOUT );
@@ -99,12 +99,12 @@ sub new {
 	$self->{'pa_vdev'}{'output'}{0}{'gst_thread'} = 0;
 
 # "action_map" may go away.... (limited usefullness if any in current itteration of code.)
-	$self->{'pa_vdev'}{'action_map'}{'by_name'}{'arctica.mic0'} = 
+	$self->{'pa_vdev'}{'action_map'}{'by_name'}{'arctica.mic0'} =
 							{
 								type  => "input",
 								idnum => 0,
 							};
-	$self->{'pa_vdev'}{'action_map'}{'by_name'}{'arctica.output0'} = 	
+	$self->{'pa_vdev'}{'action_map'}{'by_name'}{'arctica.output0'} =
 							{
 								type  => "output",
 								idnum => 0,
@@ -126,7 +126,7 @@ sub new {
 		exec_path	=>	"/usr/bin/pactl",# FIXME  Make this configurable!
 		exec_cl_argv	=>	["subscribe"],
 
-	});	
+	});
 
 	$arctica_core_object->{'aobj'}{'AudioServer'}{'PA_Virtual_Devices'} = \$self;
 
@@ -136,6 +136,7 @@ sub new {
 
 	return $self;
 }
+
 
 sub _suspend_idle {# Cause we can't always rely on PulseAudio for this.... (PA BUG?)
 	my $self = $_[0];
@@ -202,8 +203,8 @@ sub _set_device_our_state {
 		}
 
 
-	} 
-	
+	}
+
 
 	BugOUT(9,"set_device_our_state DONE");
 }
@@ -269,13 +270,13 @@ sub _set_device_pa_state {
 		}
 
 
-	} 
+	}
 	BugOUT(9,"set_device_pa_state DONE");
 
 }
 
 sub _pulse_event_handler {
-#	BugOUT(9,"_pulse_event_handler: ENTER");
+	BugOUT(9,"_pulse_event_handler: ENTER");
 	my $self = $_[0];
 	if ($_[1] =~ /Event\s*\'change\'\s*on\s*(\w{4,6})\s/) {
 		my $chWhere = $1;
@@ -291,11 +292,11 @@ sub _pulse_event_handler {
 							$self->_set_device_pa_state($devices->{$name}{'type'},$devices->{$name}{'idnum'},$name,"I");
 						} elsif ($2 =~ /(SUSPENDED)$/) {
 							$self->_set_device_pa_state($devices->{$name}{'type'},$devices->{$name}{'idnum'},$name,"S");
-						} elsif ($2 =~ /(RUNNING)$/) {	
+						} elsif ($2 =~ /(RUNNING)$/) {
 							$self->_set_device_pa_state($devices->{$name}{'type'},$devices->{$name}{'idnum'},$name,"R");
 						}
-					}						
-				}	
+					}
+				}
 			}
 			close(PACTL);
 		} else {
@@ -303,10 +304,18 @@ sub _pulse_event_handler {
 		}
 
 	}
+	BugOUT(9,"_pulse_event_handler: DONE");
 	return 1;
-#	BugOUT(9,"_pulse_event_handler: DONE");
 }
 
+sub force_chk_dev_state {
+	BugOUT(8,"USE OF/(THE?) FORCE!!!: ENTER");
+	my $self = $_[0];
+# (W)HACKY BUT WORKS FINE FOR NOW
+	$self->_pulse_event_handler("Event 'change' on source ");
+	$self->_pulse_event_handler("Event 'change' on sink ");
+	BugOUT(8,"THE LAST JEDI RETIRES...");
+}
 
 sub get_list {
 	BugOUT(8,"PAVirtualDevices getLIST");
@@ -316,7 +325,7 @@ sub get_list {
 			return $self->{'pa_vdev'}{'action_map'}{'by_name'};
 		}
 	}
-}  
+}
 
 1;
 

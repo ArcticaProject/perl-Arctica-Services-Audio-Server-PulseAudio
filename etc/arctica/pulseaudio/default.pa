@@ -13,7 +13,7 @@ load-module module-native-protocol-unix
 
 load-module module-null-sink sink_name=arctica.output0 channels=2 sink_properties=device.description="VirtualOutput"
 load-module module-null-sink sink_name=arctica.input0 channels=1 sink_properties=device.description=".VirtualInputSink"
-load-module module-remap-source master=arctica.input0.monitor source_name=arctica.mic0 source_properties=device.description="VirtualMicrophone"
+#load-module module-remap-source master=arctica.input0.monitor source_name=arctica.mic0 source_properties=device.description="VirtualMicrophone" remix=0
 
 
 ### Honour intended role device property
@@ -53,6 +53,7 @@ load-module module-x11-xsmp
 load-module module-x11-publish
 .fail
 .endif
+
 
 ### Make some devices default
 set-default-sink arctica.output0

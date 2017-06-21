@@ -1,4 +1,4 @@
-#!/usr/bin/perl  -T -I /home/testx/arctica/HACK/convergence/perl/modules
+#!/usr/bin/perl  -T -I /audiotest/perlmodules/
 ################################################################################
 #          _____ _
 #         |_   _| |_  ___
@@ -62,8 +62,8 @@ use strict;
 use Data::Dumper;
 use Arctica::Core::eventInit qw(genARandom BugOUT);
 use Arctica::Core::JABus::Socket;
-use Arctica::Services::Audio::PulseAudio::PAVirtualDevices;
-use Arctica::Services::Audio::PulseAudio::PulseAudio2GST;
+use Arctica::Services::Audio::Server::PulseAudio::PAVirtualDevices;
+use Arctica::Services::Audio::Server::PulseAudio::PulseAudio2GST;
 #FIXME ADD  something that checks for active PulseAudio before we start doing our stuff....
 
 my $ACO = Arctica::Core::eventInit->new({
@@ -71,72 +71,134 @@ my $ACO = Arctica::Core::eventInit->new({
 	app_class =>'amoduletester',
 	app_version=>'0.0.1.1'});
 
+
 my $JABusServer = Arctica::Core::JABus::Socket->new($ACO,{
 	type	=>	"unix",
 	destination =>	"local",
 	is_server => 1,
 	handle_in_dispatch => {
 #			heartbeat => \&heartbeat, #FIXME heartbeat will be intergrated in RTT and persistency code in JABus...
-			gstctl => \&pa2gst_ctl,# Client facing stuff must be NON pulse centric 
+			gstctl => \&pa2gst_ctl,# Client facing stuff must be NON pulse centric
 			init => \&client_init,
-#			cmd => \&client_init,# JABus runtime control 
+#			cmd => \&client_init,# JABus runtime control
 #			sub => \&subsrvc,# JABus runtime notifications service
 	},
 });
 
-my $PA2GST = Arctica::Services::Audio::PulseAudio::PulseAudio2GST->new($ACO,$JABusServer);
+open(SID,">$ACO->{'a_dirs'}{'tmp_adir'}/audiotest_socet_id");
+print SID "$JABusServer->{'_socket_id'}\n";
+close(SID);
 
-my $PA_VDev = Arctica::Services::Audio::PulseAudio::PAVirtualDevices->new($ACO,{
+my $PA2GST = Arctica::Services::Audio::Server::PulseAudio::PulseAudio2GST->new($ACO,$JABusServer);
+
+if (@ARGV) {
+	foreach my $arg (@ARGV) {
+		BugOUT(8,"ARG:\t$arg\t:ARG\n");
+
+		if ($arg =~ /^\-bitrate=([0-9\:]{1,})/) {
+			$PA2GST->set_bitrate($1);
+		} elsif ($arg =~ /^\-dgst_soc_port\=([io]\d*)\:(\d*)$/) {# FIXME by the time we're doing something with unix sockets this will be looooooong gone...
+			$PA2GST->set_device_gst_port($1,$2);
+		} elsif ($arg =~ /^\-dgst_soc_type\=([a-z]{3,5})/) {
+			$PA2GST->set_device_socket_type($1);
+		}
+
+	}
+} else {
+	BugOUT(0,"NO ARGS?");
+}
+
+
+
+
+my $PA_VDev = Arctica::Services::Audio::Server::PulseAudio::PAVirtualDevices->new($ACO,{
 		hook_device_state => \&handle_PA_device_events,
-#		hook_device_state =>  sub {$PA2GST->handle_PA_device_events(@_)},
 	});
 
 
+my $wtf = Glib::Timeout->add (500, \&chk_bitrate_file, undef, 1 );# FIXME DIRTY HACK... WILL BE HANDELED ON JABus in the TeKi enabled version
 
 
 
-#print Dumper($PA_VDev);
 
 $ACO->{'Glib'}{'MainLoop'}->run;
+
+
+sub pa2gst_ctl {
+	my $JDATA = $_[0];
+	my (undef,$device_soc_style) = $PA2GST->get_device_socket_type();
+#	print "SOCK STYLE: $device_soc_style\n";
+#	print "GSTCTL_JSON:\n",Dumper($JDATA);
+#	print "Action:\t$JDATA->{'action'}\n";
+	if  ($JDATA->{'action'} eq "ready") {
+		if ($JDATA->{'type'} eq "output") {
+			if ($JDATA->{'idnum'} =~ /^(\d{1,})$/) {
+				my $idnum = $1;
+				if ($device_soc_style eq "stream") {
+					$PA2GST->start_output($idnum,$PA_VDev->{'pa_vdev'}{'output'}{$idnum}{'pa_sink_name'});
+				}
+
+			}
+		}
+	}
+	return 1;
+}
+
+
 
 sub handle_PA_device_events {# FIXME this has moved into PulseAudio2GST...: But then it came back out here...
 	print "-------------------------------\n";
 	print Dumper(@_),"\n";
+
 	my $type = $_[0];
 	my $idnum = $_[1];
 	my $name = $_[2];
 	my $new_state = $_[3];
 	my $clientID = $PA2GST->get_active_client_id();
-	print "CID#\t$clientID\n";
+	my (undef,$device_soc_style) = $PA2GST->get_device_socket_type();
+
 	if ($clientID) {
-		
+
 		if ($type eq "input") {
 			if ($new_state eq "R") {
 				# START LOCAL THEN CLIENTSIDE
-				$PA2GST->start_input($idnum,$PA_VDev->{'pa_vdev'}{'input'}{0}{'pa_sink_name'});
-				$JABusServer->server_send($clientID,"gstctl",{
-										action => "start",
-										type   => $type,
-										idnum  => $idnum,
-										rate  => $PA2GST->get_input_bitrate($idnum),
-										});
+				$PA2GST->start_input($idnum,$PA_VDev->{'pa_vdev'}{$type}{$idnum}{'pa_sink_name'},sub {
+					$JABusServer->server_send($clientID,"gstctl",{
+											action => "start",
+											type   => $type,
+											idnum  => $idnum,
+											bitrate  => $PA2GST->get_bitrate("input"),
+											});
+				});
+
+				open(HM,">/tmp/hotmic");print HM time;close(HM);# FIXME DIRTY HACK... WILL BE HANDELED ON JABus in the TeKi enabled version
+
 			} elsif($new_state eq "S") {
+				$PA2GST->stop_input($idnum);
+
 				$JABusServer->server_send($clientID,"gstctl",{
 										action => "stop",
 										type   => $type,
 										idnum  => $idnum,
 										});
-				$PA2GST->stop_input($idnum);
+
+				if (-f "/tmp/hotmic")  {unlink("/tmp/hotmic");}# FIXME DIRTY HACK... WILL BE HANDELED ON JABus in the TeKi enabled version
+
 			}
+
 		} elsif ($type eq "output") {
 			if ($new_state eq "R") {
-				# START CLIENT SIDE THEN LOCAL 
-				$PA2GST->start_output($idnum,$PA_VDev->{'pa_vdev'}{'input'}{0}{'pa_sink_name'});
+
+				unless ($device_soc_style ne "datagram") {
+					$PA2GST->start_output($idnum,$PA_VDev->{'pa_vdev'}{$type}{$idnum}{'pa_sink_name'});
+				}
+
 				$JABusServer->server_send($clientID,"gstctl",{
 										action => "start",
 										type   => $type,
 										idnum  => $idnum,
 										});
+
 			} elsif ($new_state eq "S") {
 				$JABusServer->server_send($clientID,"gstctl",{
 										action => "stop",
@@ -145,7 +207,8 @@ sub handle_PA_device_events {# FIXME this has moved into PulseAudio2GST...: But 
 										});
 				$PA2GST->stop_output($idnum);
 			}
-		} 
+
+		}
 	}
 }
 
@@ -158,14 +221,37 @@ sub client_init {
 	BugOUT(8,"NEW CLIENT! ( $client_ID )");
 	if ($ACO->{'aobj'}{'AudioServer'}{'client_ID'}) {
 		client_cleanup($ACO->{'aobj'}{'AudioServer'}{'client_ID'});
-	}	
-	
+	}
+
 	$ACO->{'aobj'}{'AudioServer'}{'client_ID'} = $client_ID;
 	$PA2GST->set_jbus_client_id($client_ID);
 # FIXME Add something to force check of pulse vdev status at this point....
-
+	$PA_VDev->force_chk_dev_state();
 #	$TheJBUS->server_send($client_ID,'init','GOOD TO GO!');
+	return 1;
+}
 
+sub chk_bitrate_file {# FIXME DIRTY HACK... WILL BE HANDELED ON JABus in the TeKi enabled version
+	if (-f "/tmp/ch_bitrate") {
+		open(BR,"/tmp/ch_bitrate");
+		my ($rate,undef) = <BR>;
+		close(BR);
+		if ($rate =~ /^([0-9\:]{1,})/) {
+			BugOUT(1,"CHBITRATE: $rate");
+			$PA2GST->set_bitrate($rate);
+			my $clientID = $PA2GST->get_active_client_id();
+			if ($clientID) {
+				my $input_rate = $PA2GST->get_bitrate("input");
+				$JABusServer->server_send($clientID,"gstctl",{
+							action => "ch_input_bitrate",
+							bitrate   => $input_rate ,
+						});
+
+			}
+		}
+		unlink("/tmp/ch_bitrate");
+	}
+	return 1;
 }
 
 sub client_cleanup {
