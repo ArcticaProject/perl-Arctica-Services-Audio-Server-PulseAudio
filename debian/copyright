@@ -1,7 +1,7 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: perl-Arctica-Telekinesis-Application-Gtk3
+Upstream-Name: perl-Arctica-Services-Audio-Server-PulseAudio
 Upstream-Contact: Arctica Project Developers <devs@lists.arctica-project.org>
-Source: https://github.com/ArcticaProject/perl-Arctica-Telekinesis-Application-Gtk3
+Source: https://github.com/ArcticaProject/perl-Arctica-Services-Audio-Server-PulseAudio
 
 Files: *
 Copyright:
