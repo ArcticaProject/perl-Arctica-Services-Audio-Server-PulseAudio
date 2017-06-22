@@ -1,0 +1,45 @@
+Source: libarctica-services-audio-server-pulseaudio-perl
+Section: perl
+Priority: optional
+Build-Depends:
+ cdbs,
+ debhelper (>= 9),
+Build-Depends-Indep:
+ perl (>= 5.8.0),
+Maintainer: Arctica Project Developers <devs@lists.arctica-project.org>
+Uploaders:
+ Mike Gabriel <mike.gabriel@das-netzwerkteam.de>
+Homepage: https://arctica-project.org/
+Vcs-Git: https://github.com/ArcticaProject/perl-Arctica-Services-Audio-Server-PulseAudio
+Vcs-Browser: https://github.com/ArcticaProject/perl-Arctica-Services-Audio-Server-PulseAudio
+Standards-Version: 3.9.8
+
+Package: libarctica-services-audio-server-pulseaudio-perl
+Architecture: all
+Depends:
+ ${perl:Depends},
+ ${misc:Depends},
+Description: Arctica Service: Audio::Server::PulseAudio
+ The Arctica Project brings forth a remote computing framework of
+ enterprise grade and quality. The Arctica Framework is a highly
+ modularized and thus pluggable for developing alls sort of remote
+ services.
+ .
+ This package provides a module that provides the bits and pieces for
+ properly initiating and interacting with a persistent server side
+ pulseaudio daemon with virtual input and output devices 
+
+Package: arctica-testserver-pulseaudio
+Architecture: all
+Depends:
+ ${perl:Depends},
+ ${misc:Depends},
+ libarctica-services-audio-server-pulseaudio-perl (= ${binary:Version}),,
+Description: Arctica Service: Audio::Server::PulseAudio
+ The Arctica Project brings forth a remote computing framework of
+ enterprise grade and quality. The Arctica Framework is a highly
+ modularized and thus pluggable for developing alls sort of remote
+ services.
+ .
+ This package provides a standalone testserver that initializes a
+ persistent pulseaudio daemon with virtual input and output devices.
