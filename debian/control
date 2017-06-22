@@ -36,7 +36,7 @@ Depends:
  ${misc:Depends},
  libarctica-services-audio-server-pulseaudio-perl (= ${binary:Version}),
  libarctica-services-audio-streamer-pulseaudio2gst-perl,
-Description: Arctica Service: Audio::Server::PulseAudio
+Description: Arctica Service: Audio::Server::PulseAudio (test server)
  The Arctica Project brings forth a remote computing framework of
  enterprise grade and quality. The Arctica Framework is a highly
  modularized and thus pluggable for developing alls sort of remote
