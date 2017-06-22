@@ -63,7 +63,7 @@ use Data::Dumper;
 use Arctica::Core::eventInit qw(genARandom BugOUT);
 use Arctica::Core::JABus::Socket;
 use Arctica::Services::Audio::Server::PulseAudio::PAVirtualDevices;
-use Arctica::Services::Audio::Server::PulseAudio::PulseAudio2GST;
+use Arctica::Services::Audio::Streamer::PulseAudio2GST;
 #FIXME ADD  something that checks for active PulseAudio before we start doing our stuff....
 
 my $ACO = Arctica::Core::eventInit->new({
@@ -89,7 +89,7 @@ open(SID,">$ACO->{'a_dirs'}{'tmp_adir'}/audiotest_socet_id");
 print SID "$JABusServer->{'_socket_id'}\n";
 close(SID);
 
-my $PA2GST = Arctica::Services::Audio::Server::PulseAudio::PulseAudio2GST->new($ACO,$JABusServer);
+my $PA2GST = Arctica::Services::Audio::Streamer::PulseAudio2GST->new($ACO,$JABusServer);
 
 if (@ARGV) {
 	foreach my $arg (@ARGV) {
