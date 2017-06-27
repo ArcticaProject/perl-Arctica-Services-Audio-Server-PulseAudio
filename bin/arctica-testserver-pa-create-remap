@@ -1,0 +1,96 @@
+#!/usr/bin/perl
+
+################################################################################
+#          _____ _
+#         |_   _| |_  ___
+#           | | | ' \/ -_)
+#           |_| |_||_\___|
+#                   _   _             ____            _           _
+#    / \   _ __ ___| |_(_) ___ __ _  |  _ \ _ __ ___ (_) ___  ___| |_
+#   / _ \ | '__/ __| __| |/ __/ _` | | |_) | '__/ _ \| |/ _ \/ __| __|
+#  / ___ \| | | (__| |_| | (_| (_| | |  __/| | | (_) | |  __/ (__| |_
+# /_/   \_\_|  \___|\__|_|\___\__,_| |_|   |_|  \___// |\___|\___|\__|
+#                                                  |__/
+#          The Arctica Modular Remote Computing Framework
+#
+################################################################################
+#
+# Copyright (C) 2015-2016 The Arctica Project
+# http://arctica-project.org/
+#
+# This code is dual licensed: strictly GPL-2 or AGPL-3+
+#
+# GPL-2
+# -----
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the
+# Free Software Foundation, Inc.,
+#
+# 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# AGPL-3+
+# -------
+# This programm is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This programm is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program; if not, write to the
+# Free Software Foundation, Inc.,
+# 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# Copyright (C) 2015-2017 Guangzhou Nianguan Electronics Technology Co.Ltd.
+#                         <opensource@gznianguan.com>
+# Copyright (C) 2015-2017 Mike Gabriel <mike.gabriel@das-netzwerkteam.de>
+#
+################################################################################
+
+use GStreamer1;
+use Glib qw( TRUE FALSE );
+use Time::HiRes qw( usleep );
+GStreamer1::init([ $0 ]);# Initiate GST
+
+$ENV{'DISPLAY'} = ":9";
+my $gotit = 0;
+open(PACTL, "-|", "/usr/bin/pactl","list","sources","short");
+while (<PACTL>) {
+	if ($_ =~ /arctica\.mic0/) {
+		$gotit = 1;		
+	}	
+}
+close(PACTL);
+
+
+if ($gotit ne 1) {
+system("pactl load-module module-null-sink sink_name=arctica.output0 channels=2 sink_properties=device.description=\"VirtualOutput\"");
+system("pactl load-module module-null-sink sink_name=arctica.input0 channels=1 sink_properties=device.description=\".VirtualInputSink\"");
+
+	my $pipeline = GStreamer1::Pipeline->new( 'pipeline' );
+	my $src = GStreamer1::ElementFactory::make( pulsesrc => 'src' );
+	$src->set( 'device' => "arctica.input0.monitor" );
+	my $sink  = GStreamer1::ElementFactory::make( fakesink => 'sink' );
+	$pipeline->add( $src );
+	$pipeline->add( $sink );
+	$src->link($sink);
+	$pipeline->set_state( "playing" );
+	usleep(100000);
+	system("/usr/bin/pactl load-module module-remap-source master=arctica.input0.monitor source_name=arctica.mic0 source_properties=device.description=\"VirtualMicrophone\" remix=0");
+	usleep(1000000);
+	$pipeline->set_state( "paused" );
+	$pipeline->set_state( "null" );
+}
