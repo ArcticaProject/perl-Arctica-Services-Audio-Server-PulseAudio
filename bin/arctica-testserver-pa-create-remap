@@ -70,8 +70,8 @@ my $gotit = 0;
 open(PACTL, "-|", "/usr/bin/pactl","list","sources","short");
 while (<PACTL>) {
 	if ($_ =~ /arctica\.mic0/) {
-		$gotit = 1;		
-	}	
+		$gotit = 1;
+	}
 }
 close(PACTL);
 

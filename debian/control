@@ -29,7 +29,7 @@ Description: Arctica Service: Audio::Server::PulseAudio
  .
  This package provides a module that provides the bits and pieces for
  properly initiating and interacting with a persistent server side
- pulseaudio daemon with virtual input and output devices 
+ pulseaudio daemon with virtual input and output devices
 
 Package: arctica-testserver-pulseaudio
 Architecture: all
